@@ -124,14 +124,20 @@ _Lors de la définition d'une zone, spécifier l'adresse du sous-réseau IP avec
 **LIVRABLE : Remplir le tableau**
 
 | Adresse IP source | Adresse IP destination | Type | Port src | Port dst | Action |
-| :---:             | :---:                  | :---:| :------: | :------: | :----: |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
-|                   |                        |      |          |          |        |
+| :---------------: | :--------------------: | :--: | :------: | :------: | :----: |
+|        LAN        |          DNS           | UDP  |   Any    |    53    | ACCEPT |
+|        LAN        |          DNS           | TCP  |   Any    |    53    | ACCEPT |
+|        LAN        |          WAN           | ICMP |   Any    |   Any    | ACCEPT |
+|        LAN        |          DMZ           | ICMP |   Any    |   Any    | ACCEPT |
+|        DMZ        |          LAN           | ICMP |   Any    |   Any    | ACCEPT |
+|        LAN        |          WAN           | TCP  |   Any    |    80    | ACCEPT |
+|        LAN        |          WAN           | TCP  |   Any    |   8080   | ACCEPT |
+|        LAN        |          WAN           | TCP  |   Any    |   443    | ACCEPT |
+|        WAN        |          DMZ           | TCP  |   Any    |    80    | ACCEPT |
+|        LAN        |          DMZ           | TCP  |   Any    |    80    | ACCEPT |
+|        LAN        |          DMZ           | TCP  |   Any    |    22    | ACCEPT |
+|        LAN        |        FIrewall        | TCP  |   Any    |    22    | ACCEPT |
+|        Any        |          Any           | Any  |   Any    |   Any    |  DROP  |
 
 ---
 
@@ -228,6 +234,8 @@ ping 192.168.200.3
 
 **LIVRABLE : capture d'écran de votre tentative de ping.**  
 
+![image-20200312132036897](/Users/robin/Documents/heig/2eme/BA4/SRX/2.Labo/Lab01/Teaching-HEIGVD-SRX-2020-Labo-Firewall/tentative_ping_1.png)
+
 ---
 
 En effet, la communication entre les clients dans le LAN et les serveurs dans la DMZ doit passer à travers le Firewall. Il faut donc définir le Firewall comme passerelle par défaut pour le client dans le LAN et le serveur dans la DMZ.
@@ -259,7 +267,7 @@ PermitRootLogin yes
 
 et enregistrer et fermer le fichier en question.
 
-**ATTENTION :** Il faudra aussi définir un mot de passe pour pour les connexions ssh. Pour cela, utiliser la commande `passwd`.
+**ATTENTION :** Il faudra aussi définir un mot de passe pour pour les connexions ssh. Pour cela, utiliser la commande `passwd`. (Passw0rd)
 
 Toujours dans un terminal de votre serveur, taper les commandes suivantes :
 
@@ -283,6 +291,8 @@ ping 192.168.100.3
 
 **LIVRABLE : capture d'écran de votre nouvelle tentative de ping.**
 
+![image-20200312134446165](/Users/robin/Documents/heig/2eme/BA4/SRX/2.Labo/Lab01/Teaching-HEIGVD-SRX-2020-Labo-Firewall/tentative_ping_2.png)
+
 ---
 
 La communication est maintenant possible entre les deux machines. Pourtant, si vous essayez de communiquer depuis le client ou le serveur vers l'Internet, ça ne devrait pas encore fonctionner sans une manipulation supplémentaire au niveau du firewall. Vous pouvez le vérifier avec un ping depuis le client ou le serveur vers une adresse Internet. 
@@ -296,6 +306,8 @@ ping 8.8.8.8
 ---
 
 **LIVRABLE : capture d'écran de votre ping vers l'Internet.**
+
+![image-20200312134537747](/Users/robin/Documents/heig/2eme/BA4/SRX/2.Labo/Lab01/Teaching-HEIGVD-SRX-2020-Labo-Firewall/tentative_ping_3.png)
 
 ---
 
@@ -403,7 +415,7 @@ LIVRABLE : Commandes iptables
 
 ```bash
 ping 8.8.8.8
-``` 	            
+```
 Faire une capture du ping.
 
 ---
@@ -460,6 +472,47 @@ Commandes iptables :
 
 ```bash
 LIVRABLE : Commandes iptables
+
+#LAN 192.168.100.0/24
+#Parefeu 192.168.100.2 (eth1) 192.168.200.2 (eth2)
+#DMZ 192.168.200.0/24 (200.3 le dmz)
+# WAN 172.17.0.2
+
+
+#policies
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+
+#LAN DNS UDP Any 53 ACCEPT
+iptables -A FORWARD -s 192.168.100.0/24  -p udp --dport 53 -j ACCEPT 
+
+#LAN DNS TCP Any 53 ACCEPT
+iptables -A FORWARD -s 192.168.100.0/24  -p udp --dport 53 -j ACCEPT 
+
+#LAN WAN ICMP Any Any ACCEPT  #### FONCTIONNE
+iptables -A FORWARD -s 192.168.100.0/24   -p icmp --icmp-type echo-request  -j ACCEPT 
+iptables -A FORWARD -d 192.168.100.0/24  -p icmp --icmp-type echo-reply  -j ACCEPT 
+
+#LAN DMZ ICMP Any Any ACCEPT ### FONCTIONNE 
+iptables -A FORWARD -s 192.168.100.0/24 -d 192.168.200.0/24 -p icmp --icmp-type echo-request -j ACCEPT 
+iptables -A FORWARD  -s 192.168.200.0/24 -d 192.168.100.0/24 -p icmp --icmp-type echo-reply -j ACCEPT 
+
+
+#DMZ LAN ICMP Any Any ACCEPT ### FONCTIONNE
+iptables -A FORWARD -s 192.168.100.0/24 -d 192.168.200.0/24 -p icmp --icmp-type echo-reply -j ACCEPT 
+iptables -A FORWARD  -s 192.168.200.0/24 -d 192.168.100.0/24 -p icmp --icmp-type echo-request -j ACCEPT 
+
+#udp out
+iptables -A OUTPUT -p udp --dport 53 -j ACCEPT 
+#udp in
+iptables -A INPUT -p udp --sport 53 -j ACCEPT
+#ping 
+iptables -A OUTPUT -p icmp --icmp-type 8 -j ACCEPT
+iptables -A INPUT -p icmp --icmp-type 0 -j ACCEPT
+
+
 ```
 
 ---
@@ -468,7 +521,6 @@ LIVRABLE : Commandes iptables
   <li>Tester en réitérant la commande ping sur le serveur de test (Google ou autre) : 
   </li>                                  
 </ol>
-
 ---
 
 **LIVRABLE : capture d'écran de votre ping.**
@@ -479,7 +531,6 @@ LIVRABLE : Commandes iptables
   <li>Remarques (sur le message du premier ping)? 
   </li>                                  
 </ol>
-
 ---
 **Réponse**
 
@@ -523,7 +574,6 @@ LIVRABLE : Commandes iptables
   <li>Tester l’accès à ce serveur depuis le LAN utilisant utilisant wget (ne pas oublier les captures d'écran). 
   </li>                                  
 </ol>
-
 ---
 
 **LIVRABLE : capture d'écran.**
@@ -564,7 +614,6 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
   <li>Expliquer l'utilité de **ssh** sur un serveur. 
   </li>                                  
 </ol>
-
 ---
 **Réponse**
 
@@ -593,7 +642,6 @@ A présent, vous devriez avoir le matériel nécessaire afin de reproduire la ta
   <li>Insérer la capture d’écran avec toutes vos règles iptables
   </li>                                  
 </ol>
-
 ---
 
 **LIVRABLE : capture d'écran avec toutes vos règles.**
