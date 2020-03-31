@@ -402,7 +402,22 @@ Commandes iptables :
 ---
 
 ```bash
-LIVRABLE : Commandes iptables
+#default policies to DROP
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+# ping LAN -> DMZ
+iptables -A FORWARD -s 192.168.100.0/24 -d 192.168.200.0/24 -p icmp --icmp-type echo-request -j ACCEPT 
+iptables -A FORWARD  -s 192.168.200.0/24 -d 192.168.100.0/24 -p icmp --icmp-type echo-reply -j ACCEPT 
+
+# ping LAN -> WAN
+iptables -A FORWARD -s 192.168.100.0/24 -o eth0 -p icmp --icmp-type echo-request -j ACCEPT
+iptables -A FORWARD -i eth0 -d 192.168.100.0/24 -p icmp --icmp-type echo-reply -j ACCEPT
+
+# ping DMZ -> LAN 
+iptables -A FORWARD -s 192.168.100.0/24 -d 192.168.200.0/24 -p icmp --icmp-type echo-reply -j ACCEPT 
+iptables -A FORWARD  -s 192.168.200.0/24 -d 192.168.100.0/24 -p icmp --icmp-type echo-request -j ACCEPT 
 ```
 ---
 
@@ -421,6 +436,8 @@ Faire une capture du ping.
 ---
 **LIVRABLE : capture d'écran de votre ping vers l'Internet.**
 
+![image-20200331154441377](tentative_ping_4.png)
+
 ---
 
 <ol type="a" start="3">
@@ -429,20 +446,20 @@ Faire une capture du ping.
 </ol>
 
 
-| De Client\_in\_LAN à | OK/KO | Commentaires et explications |
-| :---                 | :---: | :---                         |
-| Interface DMZ du FW  |       |                              |
-| Interface LAN du FW  |       |                              |
-| Client LAN           |       |                              |
-| Serveur WAN          |       |                              |
+| De Client\_in\_LAN à | OK/KO | Commentaires et explications                     |
+| :------------------- | :---: | :----------------------------------------------- |
+| Interface DMZ du FW  |  KO   | INPUT du FW sont DROP                            |
+| Interface LAN du FW  |  KO   | INPUT du FW sont DROP                            |
+| Client LAN           |  OK   | Strictement  l'interieur du LAN OK               |
+| Serveur WAN          |  OK   | Car on autorise LAN -> ANY et ANY -> LAN en ICMP |
 
 
-| De Server\_in\_DMZ à | OK/KO | Commentaires et explications |
-| :---                 | :---: | :---                         |
-| Interface DMZ du FW  |       |                              |
-| Interface LAN du FW  |       |                              |
-| Serveur DMZ          |       |                              |
-| Serveur WAN          |       |                              |
+| De Server\_in\_DMZ à | OK/KO | Commentaires et explications                |
+| :------------------- | :---: | :------------------------------------------ |
+| Interface DMZ du FW  |  KO   | INPUT du FW sont DROP                       |
+| Interface LAN du FW  |  KO   | INPUT du FW sont DROP                       |
+| Serveur DMZ          |  OK   | Strictement a l'interieur de la DMZ donc OK |
+| Serveur WAN          |  KO   | Il n'y a pas la même regle que pour client  |
 
 
 ## Règles pour le protocole DNS
@@ -462,6 +479,8 @@ ping www.google.com
 
 **LIVRABLE : capture d'écran de votre ping.**
 
+![image-20200331160437246](tentative_ping_5.png)
+
 ---
 
 * Créer et appliquer la règle adéquate pour que la **condition 1 du cahier des charges** soit respectée.
@@ -471,48 +490,13 @@ Commandes iptables :
 ---
 
 ```bash
-LIVRABLE : Commandes iptables
-
-#LAN 192.168.100.0/24
-#Parefeu 192.168.100.2 (eth1) 192.168.200.2 (eth2)
-#DMZ 192.168.200.0/24 (200.3 le dmz)
-# WAN 172.17.0.2
-
-
-#policies
-iptables -P INPUT DROP
-iptables -P OUTPUT DROP
-iptables -P FORWARD DROP
-
-
 #LAN DNS UDP Any 53 ACCEPT
-iptables -A FORWARD -s 192.168.100.0/24  -p udp --dport 53 -j ACCEPT 
-
+iptables -A FORWARD -s 192.168.100.0/24 -o eth0 -p udp --dport 53 -j ACCEPT 
 #LAN DNS TCP Any 53 ACCEPT
-iptables -A FORWARD -s 192.168.100.0/24  -p udp --dport 53 -j ACCEPT 
+iptables -A FORWARD -s 192.168.100.0/24 -o eth0 -p tcp --dport 53 -j ACCEPT 
 
-#LAN WAN ICMP Any Any ACCEPT  #### FONCTIONNE
-iptables -A FORWARD -s 192.168.100.0/24   -p icmp --icmp-type echo-request  -j ACCEPT 
-iptables -A FORWARD -d 192.168.100.0/24  -p icmp --icmp-type echo-reply  -j ACCEPT 
-
-#LAN DMZ ICMP Any Any ACCEPT ### FONCTIONNE 
-iptables -A FORWARD -s 192.168.100.0/24 -d 192.168.200.0/24 -p icmp --icmp-type echo-request -j ACCEPT 
-iptables -A FORWARD  -s 192.168.200.0/24 -d 192.168.100.0/24 -p icmp --icmp-type echo-reply -j ACCEPT 
-
-
-#DMZ LAN ICMP Any Any ACCEPT ### FONCTIONNE
-iptables -A FORWARD -s 192.168.100.0/24 -d 192.168.200.0/24 -p icmp --icmp-type echo-reply -j ACCEPT 
-iptables -A FORWARD  -s 192.168.200.0/24 -d 192.168.100.0/24 -p icmp --icmp-type echo-request -j ACCEPT 
-
-#udp out
-iptables -A OUTPUT -p udp --dport 53 -j ACCEPT 
-#udp in
-iptables -A INPUT -p udp --sport 53 -j ACCEPT
-#ping 
-iptables -A OUTPUT -p icmp --icmp-type 8 -j ACCEPT
-iptables -A INPUT -p icmp --icmp-type 0 -j ACCEPT
-
-
+## on rajoute auusi pour mettre en statefull (sinon ca fonctionne pas)
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED -j ACCEPT
 ```
 
 ---
@@ -525,6 +509,8 @@ iptables -A INPUT -p icmp --icmp-type 0 -j ACCEPT
 
 **LIVRABLE : capture d'écran de votre ping.**
 
+![image-20200331161010967](tentative_ping_6.png)
+
 ---
 
 <ol type="a" start="6">
@@ -534,7 +520,7 @@ iptables -A INPUT -p icmp --icmp-type 0 -j ACCEPT
 ---
 **Réponse**
 
-**LIVRABLE : Votre réponse ici...**
+La destination était une IP donc c'était OK. Par contre la il doit contacter un DNS pour trouver l'IP de `www.google.com`. Maintenant qu'on à les règles pour le DNS cela fonctionne. 
 
 ---
 
@@ -554,7 +540,9 @@ Commandes iptables :
 ---
 
 ```bash
-LIVRABLE : Commandes iptables
+iptables -A FORWARD -s 192.168.100.0/24 -o eth0 -p tcp --dport 80 -j ACCEPT
+iptables -A FORWARD -s 192.168.100.0/24 -o eth0 -p tcp --dport 8080 -j ACCEPT
+iptables -A FORWARD -s 192.168.100.0/24 -o eth0 -p tcp --dport 443 -j ACCEPT
 ```
 
 ---
@@ -566,7 +554,8 @@ Commandes iptables :
 ---
 
 ```bash
-LIVRABLE : Commandes iptables
+iptables -A FORWARD -s 192.168.100.0/24 -d 192.168.200.3 -p tcp --dport 80 -j ACCEPT
+iptables -A FORWARD -i eth0 -d 192.168.200.3 -p tcp --dport 80 -j ACCEPT
 ```
 ---
 
@@ -577,6 +566,8 @@ LIVRABLE : Commandes iptables
 ---
 
 **LIVRABLE : capture d'écran.**
+
+![image-20200331161459415](wget_heig.png)
 
 ---
 
@@ -593,7 +584,8 @@ Commandes iptables :
 ---
 
 ```bash
-LIVRABLE : Commandes iptables
+iptables -A FORWARD -s 192.168.100.3 -d 192.168.100.2 -p tcp --dport 22 -j ACCEPT
+iptables -A FORWARD -s 192.168.100.3 -d 192.168.200.3 -p tcp --dport 22 -j ACCEPT
 ```
 
 ---
@@ -608,6 +600,10 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
 
 **LIVRABLE : capture d'écran de votre connexion ssh.**
 
+<img src="ssh.png" alt="image-20200331163732968" style="zoom:50%;" />
+
+Note: Ici j'ai eu un petit soucis avec le passwd définitivement j'imagine (on voit que la connection passe donc niveau règle iptable on est ok).
+
 ---
 
 <ol type="a" start="9">
@@ -618,6 +614,8 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
 **Réponse**
 
 **LIVRABLE : Votre réponse ici...**
+
+SSH permet d'avoir une connexion à distance sécurisée sur un serveur. Permet d'obtenir un shell sur cette machine. On peut ensuite effectuer des commandes (par exemple iptables).
 
 ---
 
@@ -632,6 +630,8 @@ ssh root@192.168.200.3 (password : celui que vous avez configuré)
 
 **LIVRABLE : Votre réponse ici...**
 
+On obtient énormement de droit sur la machine (par exemple ici on se connecte en root !) Donc il ne faut laisser que les IP qui ont le droit dans les règles de la table pour éviter d'avoir des surprises.
+
 ---
 
 ## Règles finales iptables
@@ -645,5 +645,7 @@ A présent, vous devriez avoir le matériel nécessaire afin de reproduire la ta
 ---
 
 **LIVRABLE : capture d'écran avec toutes vos règles.**
+
+![image-20200331163628865](all_rules.png)
 
 ---
