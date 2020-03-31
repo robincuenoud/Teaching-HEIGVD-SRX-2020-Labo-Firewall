@@ -234,7 +234,7 @@ ping 192.168.200.3
 
 **LIVRABLE : capture d'écran de votre tentative de ping.**  
 
-![image-20200312132036897](/Users/robin/Documents/heig/2eme/BA4/SRX/2.Labo/Lab01/Teaching-HEIGVD-SRX-2020-Labo-Firewall/tentative_ping_1.png)
+![image-20200312132036897](tentative_ping_1.png)
 
 ---
 
@@ -291,7 +291,7 @@ ping 192.168.100.3
 
 **LIVRABLE : capture d'écran de votre nouvelle tentative de ping.**
 
-![image-20200312134446165](/Users/robin/Documents/heig/2eme/BA4/SRX/2.Labo/Lab01/Teaching-HEIGVD-SRX-2020-Labo-Firewall/tentative_ping_2.png)
+![image-20200312134446165](tentative_ping_2.png)
 
 ---
 
@@ -307,7 +307,7 @@ ping 8.8.8.8
 
 **LIVRABLE : capture d'écran de votre ping vers l'Internet.**
 
-![image-20200312134537747](/Users/robin/Documents/heig/2eme/BA4/SRX/2.Labo/Lab01/Teaching-HEIGVD-SRX-2020-Labo-Firewall/tentative_ping_3.png)
+![image-20200312134537747](tentative_ping_3.png)
 
 ---
 
